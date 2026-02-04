@@ -1083,6 +1083,9 @@
     </div>
 
     <script>
+        // API base URL - empty for same origin
+        const API_BASE = '';
+
         // State
         let activities = [];
         let currentSleep = null;
@@ -1101,41 +1104,82 @@
             loadData();
             initNavigation();
             initFilters();
-            updateUI();
             startTimer();
             setDefaultTimes();
         });
 
-        // Data persistence
-        function loadData() {
+        // API helper
+        async function api(endpoint, options = {}) {
+            const url = `${API_BASE}/api${endpoint}`;
+            const config = {
+                headers: { 'Content-Type': 'application/json' },
+                ...options
+            };
+            if (options.body) {
+                config.body = JSON.stringify(options.body);
+            }
+            const response = await fetch(url, config);
+            return response.json();
+        }
+
+        // Data persistence - now using API
+        async function loadData() {
+            try {
+                // Load settings
+                const settingsData = await api('/settings');
+                settings.babyName = settingsData.baby_name || '';
+                settings.babyDob = settingsData.baby_dob || '';
+
+                // Load current sleep status
+                const sleepStatus = await api('/sleep/current');
+                if (sleepStatus.isActive) {
+                    currentSleep = { startTime: sleepStatus.startTime };
+                } else {
+                    currentSleep = null;
+                }
+
+                // Load recent activities
+                const activitiesData = await api('/activities?limit=100');
+                activities = activitiesData.map(a => ({
+                    id: a.id,
+                    type: a.type,
+                    time: a.time,
+                    startTime: a.start_time,
+                    endTime: a.end_time,
+                    duration: a.duration,
+                    feedType: a.feed_type,
+                    side: a.side,
+                    amount: a.amount,
+                    diaperType: a.diaper_type,
+                    notes: a.notes,
+                    text: a.notes
+                }));
+
+                // Update UI with settings
+                document.getElementById('babyNameInput').value = settings.babyName || '';
+                document.getElementById('babyDobInput').value = settings.babyDob || '';
+                updateBabyNameDisplay();
+                updateUI();
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                // Fallback to localStorage if API fails
+                loadFromLocalStorage();
+            }
+        }
+
+        function loadFromLocalStorage() {
             const savedActivities = localStorage.getItem('babyTracker_activities');
             const savedSettings = localStorage.getItem('babyTracker_settings');
             const savedCurrentSleep = localStorage.getItem('babyTracker_currentSleep');
 
-            if (savedActivities) {
-                activities = JSON.parse(savedActivities);
-            }
-            if (savedSettings) {
-                settings = JSON.parse(savedSettings);
-            }
-            if (savedCurrentSleep) {
-                currentSleep = JSON.parse(savedCurrentSleep);
-            }
+            if (savedActivities) activities = JSON.parse(savedActivities);
+            if (savedSettings) settings = JSON.parse(savedSettings);
+            if (savedCurrentSleep) currentSleep = JSON.parse(savedCurrentSleep);
 
-            // Update UI with settings
             document.getElementById('babyNameInput').value = settings.babyName || '';
             document.getElementById('babyDobInput').value = settings.babyDob || '';
             updateBabyNameDisplay();
-        }
-
-        function saveData() {
-            localStorage.setItem('babyTracker_activities', JSON.stringify(activities));
-            localStorage.setItem('babyTracker_settings', JSON.stringify(settings));
-            if (currentSleep) {
-                localStorage.setItem('babyTracker_currentSleep', JSON.stringify(currentSleep));
-            } else {
-                localStorage.removeItem('babyTracker_currentSleep');
-            }
+            updateUI();
         }
 
         // Navigation
@@ -1181,33 +1225,54 @@
             }
         }
 
-        function startSleep() {
-            currentSleep = {
-                startTime: new Date().toISOString()
-            };
-            saveData();
-            updateSleepButton();
-            updateCurrentStatus();
+        async function startSleep() {
+            try {
+                const result = await api('/sleep/start', { method: 'POST' });
+                currentSleep = { startTime: result.startTime };
+                updateSleepButton();
+                updateCurrentStatus();
+            } catch (error) {
+                console.error('Failed to start sleep:', error);
+                // Fallback to local
+                currentSleep = { startTime: new Date().toISOString() };
+                updateSleepButton();
+                updateCurrentStatus();
+            }
         }
 
-        function endSleep() {
-            const endTime = new Date().toISOString();
-            const duration = new Date(endTime) - new Date(currentSleep.startTime);
-
-            activities.unshift({
-                id: Date.now(),
-                type: 'sleep',
-                startTime: currentSleep.startTime,
-                endTime: endTime,
-                duration: duration
-            });
-
-            currentSleep = null;
-            saveData();
-            updateSleepButton();
-            updateCurrentStatus();
-            updateTodaySummary();
-            renderRecentLog();
+        async function endSleep() {
+            try {
+                const result = await api('/sleep/end', { method: 'POST' });
+                activities.unshift({
+                    id: result.id,
+                    type: 'sleep',
+                    startTime: result.start_time,
+                    endTime: result.end_time,
+                    duration: result.duration
+                });
+                currentSleep = null;
+                updateSleepButton();
+                updateCurrentStatus();
+                updateTodaySummary();
+                renderRecentLog();
+            } catch (error) {
+                console.error('Failed to end sleep:', error);
+                // Fallback to local
+                const endTime = new Date().toISOString();
+                const duration = new Date(endTime) - new Date(currentSleep.startTime);
+                activities.unshift({
+                    id: Date.now(),
+                    type: 'sleep',
+                    startTime: currentSleep.startTime,
+                    endTime: endTime,
+                    duration: duration
+                });
+                currentSleep = null;
+                updateSleepButton();
+                updateCurrentStatus();
+                updateTodaySummary();
+                renderRecentLog();
+            }
         }
 
         function updateSleepButton() {
@@ -1313,11 +1378,10 @@
             }
         }
 
-        function saveFeed() {
+        async function saveFeed() {
             const feedData = {
-                id: Date.now(),
                 type: 'feed',
-                feedType: selectedOptions.feedType,
+                feed_type: selectedOptions.feedType,
                 time: document.getElementById('feedTime').value,
                 notes: document.getElementById('feedNotes').value
             };
@@ -1329,8 +1393,23 @@
                 feedData.amount = parseInt(document.getElementById('feedAmount').value) || 0;
             }
 
-            activities.unshift(feedData);
-            saveData();
+            try {
+                const result = await api('/activities', { method: 'POST', body: feedData });
+                activities.unshift({
+                    id: result.id,
+                    type: 'feed',
+                    feedType: result.feed_type,
+                    time: result.time,
+                    side: result.side,
+                    duration: result.duration,
+                    amount: result.amount,
+                    notes: result.notes
+                });
+            } catch (error) {
+                console.error('Failed to save feed:', error);
+                activities.unshift({ ...feedData, id: Date.now(), feedType: feedData.feed_type });
+            }
+
             closeModal('feedModal');
             updateUI();
 
@@ -1346,17 +1425,28 @@
             document.getElementById('diaperModal').classList.add('active');
         }
 
-        function saveDiaper() {
+        async function saveDiaper() {
             const diaperData = {
-                id: Date.now(),
                 type: 'diaper',
-                diaperType: selectedOptions.diaperType,
+                diaper_type: selectedOptions.diaperType,
                 time: document.getElementById('diaperTime').value,
                 notes: document.getElementById('diaperNotes').value
             };
 
-            activities.unshift(diaperData);
-            saveData();
+            try {
+                const result = await api('/activities', { method: 'POST', body: diaperData });
+                activities.unshift({
+                    id: result.id,
+                    type: 'diaper',
+                    diaperType: result.diaper_type,
+                    time: result.time,
+                    notes: result.notes
+                });
+            } catch (error) {
+                console.error('Failed to save diaper:', error);
+                activities.unshift({ ...diaperData, id: Date.now(), diaperType: diaperData.diaper_type });
+            }
+
             closeModal('diaperModal');
             updateUI();
 
@@ -1370,19 +1460,29 @@
             document.getElementById('noteModal').classList.add('active');
         }
 
-        function saveNote() {
+        async function saveNote() {
             const noteText = document.getElementById('noteText').value.trim();
             if (!noteText) return;
 
             const noteData = {
-                id: Date.now(),
                 type: 'note',
                 time: document.getElementById('noteTime').value,
-                text: noteText
+                notes: noteText
             };
 
-            activities.unshift(noteData);
-            saveData();
+            try {
+                const result = await api('/activities', { method: 'POST', body: noteData });
+                activities.unshift({
+                    id: result.id,
+                    type: 'note',
+                    time: result.time,
+                    text: result.notes
+                });
+            } catch (error) {
+                console.error('Failed to save note:', error);
+                activities.unshift({ ...noteData, id: Date.now(), text: noteText });
+            }
+
             closeModal('noteModal');
             updateUI();
 
@@ -1589,10 +1689,14 @@
             container.innerHTML = html;
         }
 
-        function deleteActivity(id) {
+        async function deleteActivity(id) {
             if (confirm('Delete this activity?')) {
+                try {
+                    await api(`/activities/${id}`, { method: 'DELETE' });
+                } catch (error) {
+                    console.error('Failed to delete activity:', error);
+                }
                 activities = activities.filter(a => a.id !== id);
-                saveData();
                 updateUI();
                 renderHistory();
             }
@@ -1690,15 +1794,29 @@
             switchPage('settings');
         }
 
-        function saveBabyName() {
+        async function saveBabyName() {
             settings.babyName = document.getElementById('babyNameInput').value;
-            saveData();
+            try {
+                await api('/settings', {
+                    method: 'PUT',
+                    body: { baby_name: settings.babyName, baby_dob: settings.babyDob }
+                });
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+            }
             updateBabyNameDisplay();
         }
 
-        function saveBabyDob() {
+        async function saveBabyDob() {
             settings.babyDob = document.getElementById('babyDobInput').value;
-            saveData();
+            try {
+                await api('/settings', {
+                    method: 'PUT',
+                    body: { baby_name: settings.babyName, baby_dob: settings.babyDob }
+                });
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+            }
         }
 
         function updateBabyNameDisplay() {
@@ -1710,24 +1828,38 @@
             }
         }
 
-        function exportData() {
-            const data = {
-                settings: settings,
-                activities: activities,
-                exportDate: new Date().toISOString()
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `baby-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
+        async function exportData() {
+            try {
+                const data = await api('/export');
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `baby-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Failed to export:', error);
+                // Fallback to local data
+                const data = { settings, activities, exportDate: new Date().toISOString() };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `baby-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
         }
 
-        function confirmClearData() {
+        async function confirmClearData() {
             if (confirm('Are you sure you want to delete all data? This cannot be undone.')) {
                 if (confirm('Really delete everything?')) {
+                    try {
+                        await api('/data', { method: 'DELETE' });
+                    } catch (error) {
+                        console.error('Failed to clear data:', error);
+                    }
                     activities = [];
                     currentSleep = null;
                     settings = { babyName: '', babyDob: '' };
