@@ -8,6 +8,7 @@ import TimeRangeSelector from '@/components/TimeRangeSelector';
 import StopsList from '@/components/StopsList';
 import DriverSelector from '@/components/DriverSelector';
 import DateSelector from '@/components/DateSelector';
+import ActiveFilters from '@/components/ActiveFilters';
 
 // Dynamic import for map component (Leaflet requires window object)
 const DriverMap = dynamic(() => import('@/components/DriverMap'), {
@@ -42,6 +43,7 @@ export default function Home() {
   // Handle driver change (placeholder for database integration)
   const handleDriverChange = (driverId: string) => {
     setSelectedDriverId(driverId);
+    setTimeRange(null); // Reset time filter when driver changes
     // TODO: Fetch driver data from database
     // const data = await fetchDriverDay(driverId, selectedDate);
     // setDriverDay(data);
@@ -56,6 +58,14 @@ export default function Home() {
     // setDriverDay(data);
   };
 
+  // Clear time range filter
+  const handleClearTimeRange = () => {
+    setTimeRange(null);
+  };
+
+  // Get selected driver object
+  const selectedDriver = sampleDrivers.find(d => d.id === selectedDriverId) || null;
+
   // Calculate average speed
   const averageSpeed = useMemo(() => {
     if (!driverDay?.gpsTrack?.length) return 0;
@@ -64,6 +74,37 @@ export default function Home() {
       .map(p => p.speed ?? 0);
     if (speeds.length === 0) return 0;
     return speeds.reduce((sum, s) => sum + s, 0) / speeds.length;
+  }, [driverDay?.gpsTrack]);
+
+  // Calculate total distance (rough estimate based on GPS points)
+  const totalDistance = useMemo(() => {
+    if (!driverDay?.gpsTrack?.length) return 0;
+    let distance = 0;
+    for (let i = 1; i < driverDay.gpsTrack.length; i++) {
+      const prev = driverDay.gpsTrack[i - 1];
+      const curr = driverDay.gpsTrack[i];
+      // Haversine formula (simplified)
+      const R = 6371; // Earth's radius in km
+      const dLat = (curr.lat - prev.lat) * Math.PI / 180;
+      const dLon = (curr.lng - prev.lng) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      distance += R * c;
+    }
+    return distance;
+  }, [driverDay?.gpsTrack]);
+
+  // Calculate active time
+  const activeTime = useMemo(() => {
+    if (!driverDay?.gpsTrack?.length) return { hours: 0, minutes: 0 };
+    const first = driverDay.gpsTrack[0].timestamp;
+    const last = driverDay.gpsTrack[driverDay.gpsTrack.length - 1].timestamp;
+    const diffMs = last.getTime() - first.getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return { hours, minutes };
   }, [driverDay?.gpsTrack]);
 
   if (!driverDay) {
@@ -101,15 +142,23 @@ export default function Home() {
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-500">Total Distance</div>
-              <div className="font-semibold text-gray-900">42.3 km</div>
+              <div className="font-semibold text-gray-900">{totalDistance.toFixed(1)} km</div>
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-500">Active Time</div>
-              <div className="font-semibold text-gray-900">6h 24m</div>
+              <div className="font-semibold text-gray-900">{activeTime.hours}h {activeTime.minutes}m</div>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Active filters bar */}
+      <ActiveFilters
+        driver={selectedDriver}
+        date={selectedDate}
+        timeRange={timeRange}
+        onClearTimeRange={handleClearTimeRange}
+      />
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
@@ -188,6 +237,22 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* Route info overlay when filtered */}
+          {timeRange && (
+            <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <span className="text-xs font-semibold text-gray-700">Filtered View</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                Showing route segment from{' '}
+                <span className="font-medium">{timeRange.start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                {' '}to{' '}
+                <span className="font-medium">{timeRange.end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+              </p>
+            </div>
+          )}
         </main>
       </div>
     </div>
