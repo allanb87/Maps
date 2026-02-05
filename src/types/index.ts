@@ -38,3 +38,16 @@ export interface TimeRange {
   start: Date;
   end: Date;
 }
+
+export interface Driver {
+  id: string;
+  name: string;
+  vehicleId?: string;
+}
+
+export interface RouteSegment {
+  start: GPSPoint;
+  end: GPSPoint;
+  avgSpeed: number;
+  color: string;
+}
