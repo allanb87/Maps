@@ -45,6 +45,35 @@ const startIcon = L.divIcon({
   iconAnchor: [14, 14],
 });
 
+// Speed to color mapping (green = slow, yellow = medium, red = fast)
+function getSpeedColor(speed: number): string {
+  // Normalize speed: 0-60 km/h range
+  const normalizedSpeed = Math.min(Math.max(speed, 0), 60) / 60;
+
+  // Green (slow) -> Yellow (medium) -> Red (fast)
+  if (normalizedSpeed < 0.5) {
+    // Green to Yellow
+    const t = normalizedSpeed * 2;
+    const r = Math.round(34 + (234 - 34) * t);
+    const g = Math.round(197 + (179 - 197) * t);
+    const b = Math.round(94 + (8 - 94) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    // Yellow to Red
+    const t = (normalizedSpeed - 0.5) * 2;
+    const r = Math.round(234 + (239 - 234) * t);
+    const g = Math.round(179 + (68 - 179) * t);
+    const b = Math.round(8 + (68 - 8) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+}
+
+interface RouteSegment {
+  positions: [number, number][];
+  color: string;
+  avgSpeed: number;
+}
+
 interface DriverMapProps {
   gpsTrack: GPSPoint[];
   stops: Stop[];
@@ -101,7 +130,35 @@ export default function DriverMap({
     );
   }, [stops, timeRange]);
 
-  const routePositions = filteredTrack.map(point => [point.lat, point.lng] as [number, number]);
+  // Create route segments with speed-based colors
+  const routeSegments = useMemo(() => {
+    const segments: RouteSegment[] = [];
+
+    for (let i = 0; i < filteredTrack.length - 1; i++) {
+      const current = filteredTrack[i];
+      const next = filteredTrack[i + 1];
+      const avgSpeed = ((current.speed ?? 0) + (next.speed ?? 0)) / 2;
+
+      segments.push({
+        positions: [
+          [current.lat, current.lng],
+          [next.lat, next.lng],
+        ],
+        color: getSpeedColor(avgSpeed),
+        avgSpeed,
+      });
+    }
+
+    return segments;
+  }, [filteredTrack]);
+
+  // Calculate average speed for the entire route
+  const averageSpeed = useMemo(() => {
+    if (filteredTrack.length === 0) return 0;
+    const speeds = filteredTrack.filter(p => (p.speed ?? 0) > 0).map(p => p.speed ?? 0);
+    if (speeds.length === 0) return 0;
+    return speeds.reduce((sum, s) => sum + s, 0) / speeds.length;
+  }, [filteredTrack]);
 
   const getDeliveryForStop = (stopId: string) => {
     return deliveries.find(d => d.stopId === stopId);
@@ -138,17 +195,18 @@ export default function DriverMap({
 
       <MapBoundsUpdater points={filteredTrack} />
 
-      {/* Route polyline */}
-      {routePositions.length > 1 && (
+      {/* Route polylines with speed-based colors */}
+      {routeSegments.map((segment, index) => (
         <Polyline
-          positions={routePositions}
+          key={index}
+          positions={segment.positions}
           pathOptions={{
-            color: '#3b82f6',
-            weight: 4,
-            opacity: 0.8,
+            color: segment.color,
+            weight: 5,
+            opacity: 0.9,
           }}
         />
-      )}
+      ))}
 
       {/* Start marker */}
       {filteredTrack.length > 0 && (

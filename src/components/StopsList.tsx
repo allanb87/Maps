@@ -18,12 +18,21 @@ export default function StopsList({
   selectedStopId,
   onStopSelect,
 }: StopsListProps) {
-  // Filter stops by time range
+  // Filter and sort stops by arrival time (ascending order)
   const filteredStops = useMemo(() => {
-    if (!timeRange) return stops;
-    return stops.filter(
-      stop => stop.arrivalTime >= timeRange.start && stop.departureTime <= timeRange.end
-    );
+    let result = [...stops];
+
+    // Filter by time range if specified
+    if (timeRange) {
+      result = result.filter(
+        stop => stop.arrivalTime >= timeRange.start && stop.departureTime <= timeRange.end
+      );
+    }
+
+    // Sort by arrival time in ascending order
+    result.sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
+
+    return result;
   }, [stops, timeRange]);
 
   const getDeliveryForStop = (stopId: string) => {

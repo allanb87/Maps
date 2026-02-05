@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { DriverDay, TimeRange } from '@/types';
+import { DriverDay, TimeRange, Driver } from '@/types';
 import { getSampleDriverDay } from '@/data/sampleData';
 import TimeRangeSelector from '@/components/TimeRangeSelector';
 import StopsList from '@/components/StopsList';
+import DriverSelector from '@/components/DriverSelector';
+import DateSelector from '@/components/DateSelector';
 
 // Dynamic import for map component (Leaflet requires window object)
 const DriverMap = dynamic(() => import('@/components/DriverMap'), {
@@ -17,16 +19,52 @@ const DriverMap = dynamic(() => import('@/components/DriverMap'), {
   ),
 });
 
+// Sample drivers for demo (will be replaced with database data)
+const sampleDrivers: Driver[] = [
+  { id: 'driver-001', name: 'Alex Thompson', vehicleId: 'VAN-001' },
+  { id: 'driver-002', name: 'Sarah Johnson', vehicleId: 'VAN-002' },
+  { id: 'driver-003', name: 'Mike Williams', vehicleId: 'VAN-003' },
+];
+
 export default function Home() {
   const [driverDay, setDriverDay] = useState<DriverDay | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string>('driver-001');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
-    // Load sample data
+    // Load sample data (will be replaced with API call to database)
     const data = getSampleDriverDay();
     setDriverDay(data);
   }, []);
+
+  // Handle driver change (placeholder for database integration)
+  const handleDriverChange = (driverId: string) => {
+    setSelectedDriverId(driverId);
+    // TODO: Fetch driver data from database
+    // const data = await fetchDriverDay(driverId, selectedDate);
+    // setDriverDay(data);
+  };
+
+  // Handle date change (placeholder for database integration)
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+    setTimeRange(null); // Reset time range when date changes
+    // TODO: Fetch driver data from database
+    // const data = await fetchDriverDay(selectedDriverId, date);
+    // setDriverDay(data);
+  };
+
+  // Calculate average speed
+  const averageSpeed = useMemo(() => {
+    if (!driverDay?.gpsTrack?.length) return 0;
+    const speeds = driverDay.gpsTrack
+      .filter(p => (p.speed ?? 0) > 0)
+      .map(p => p.speed ?? 0);
+    if (speeds.length === 0) return 0;
+    return speeds.reduce((sum, s) => sum + s, 0) / speeds.length;
+  }, [driverDay?.gpsTrack]);
 
   if (!driverDay) {
     return (
@@ -56,7 +94,11 @@ export default function Home() {
               {driverDay.driverName} - {formatDate(driverDay.date)}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <div className="text-sm text-gray-500">Avg Speed</div>
+              <div className="font-semibold text-gray-900">{averageSpeed.toFixed(1)} km/h</div>
+            </div>
             <div className="text-right">
               <div className="text-sm text-gray-500">Total Distance</div>
               <div className="font-semibold text-gray-900">42.3 km</div>
@@ -73,6 +115,20 @@ export default function Home() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
         <aside className="w-80 flex-shrink-0 bg-gray-50 p-4 flex flex-col gap-4 overflow-y-auto">
+          {/* Driver and Date Selectors */}
+          <div className="grid grid-cols-1 gap-3">
+            <DriverSelector
+              drivers={sampleDrivers}
+              selectedDriverId={selectedDriverId}
+              onDriverChange={handleDriverChange}
+            />
+            <DateSelector
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+              maxDate={new Date()}
+            />
+          </div>
+
           <TimeRangeSelector
             gpsTrack={driverDay.gpsTrack}
             timeRange={timeRange}
@@ -120,9 +176,15 @@ export default function Home() {
                 <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow"></div>
                 <span className="text-gray-600">Break</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-1 bg-blue-500 rounded"></div>
-                <span className="text-gray-600">Route</span>
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <div className="text-xs font-medium text-gray-700 mb-1">Route Speed</div>
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-full rounded" style={{ background: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)' }}></div>
+                </div>
+                <div className="flex justify-between text-[10px] text-gray-500 mt-0.5">
+                  <span>Slow</span>
+                  <span>Fast</span>
+                </div>
               </div>
             </div>
           </div>
