@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Stop, Delivery, TimeRange } from '@/types';
 
 interface StopsListProps {
@@ -38,29 +38,36 @@ export default function StopsList({
     const delivered = filteredStops.filter(s => s.type === 'delivered');
 
     return {
-      total: filteredStops.length,
       pickups: pickups.length,
       delivered: delivered.length,
     };
   }, [filteredStops]);
 
+  useEffect(() => {
+    if (!selectedStopId) return;
+    const stillVisible = filteredStops.some(stop => stop.id === selectedStopId);
+    if (!stillVisible) {
+      onStopSelect(null);
+    }
+  }, [filteredStops, onStopSelect, selectedStopId]);
+
   return (
     <div className="bg-white rounded-lg shadow flex flex-col h-full">
       <div className="p-4 border-b">
-        <h3 className="font-semibold text-gray-900 mb-3">Stops & Jobs</h3>
+        <h3 className="font-semibold text-gray-900 mb-3">Jobs</h3>
 
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="bg-gray-50 p-2 rounded">
-            <span className="text-gray-500">Total</span>
-            <span className="float-right font-medium">{stats.total}</span>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="bg-amber-50 p-2 rounded text-center">
+            <div className="text-amber-700">Pickups</div>
+            <div className="text-amber-700 text-lg font-semibold leading-tight">
+              {stats.pickups}
+            </div>
           </div>
-          <div className="bg-amber-50 p-2 rounded">
-            <span className="text-amber-700">Pickups</span>
-            <span className="float-right font-medium text-amber-700">{stats.pickups}</span>
-          </div>
-          <div className="bg-green-50 p-2 rounded">
-            <span className="text-green-700">Delivered</span>
-            <span className="float-right font-medium text-green-700">{stats.delivered}</span>
+          <div className="bg-green-50 p-2 rounded text-center">
+            <div className="text-green-700">Delivered</div>
+            <div className="text-green-700 text-lg font-semibold leading-tight">
+              {stats.delivered}
+            </div>
           </div>
         </div>
       </div>
