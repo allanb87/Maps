@@ -84,17 +84,30 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchJson = useCallback(async <T,>(input: RequestInfo | URL): Promise<T> => {
+    const res = await fetch(input);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Request failed (${res.status}): ${text}`);
+    }
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      throw new Error(`Expected JSON, got: ${text.slice(0, 200)}`);
+    }
+    return res.json() as Promise<T>;
+  }, []);
+
   // Fetch drivers list on mount
   useEffect(() => {
-    fetch('/api/drivers')
-      .then(res => res.json())
-      .then((data: Driver[]) => {
+    fetchJson<Driver[]>('/api/drivers')
+      .then((data) => {
         if (Array.isArray(data)) {
           setDrivers(data);
         }
       })
       .catch(err => console.error('Failed to fetch drivers:', err));
-  }, []);
+  }, [fetchJson]);
 
   const fetchDriverData = useCallback(async () => {
     if (!selectedDriverId || !selectedDate) return;
@@ -106,17 +119,14 @@ export default function Home() {
     setSelectedStopId(null);
 
     try {
-      const [gpsRes, deliveryRes] = await Promise.all([
-        fetch(`/api/drivers/${selectedDriverId}/gps?date=${selectedDate}`),
-        fetch(`/api/drivers/${selectedDriverId}/deliveries?date=${selectedDate}`),
+      const [gpsData, deliveryData] = await Promise.all([
+        fetchJson<GPSRow[]>(
+          `/api/drivers/${selectedDriverId}/gps?date=${selectedDate}`
+        ),
+        fetchJson<DeliveryRow[]>(
+          `/api/drivers/${selectedDriverId}/deliveries?date=${selectedDate}`
+        ),
       ]);
-
-      if (!gpsRes.ok || !deliveryRes.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const gpsData: GPSRow[] = await gpsRes.json();
-      const deliveryData: DeliveryRow[] = await deliveryRes.json();
 
       const driver = drivers.find(d => String(d.driver_id) === selectedDriverId);
       const driverName = driver?.display_name ?? `Driver ${selectedDriverId}`;
