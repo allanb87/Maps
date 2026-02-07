@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Driver, DriverDay, GPSPoint, Stop, Delivery, TimeRange } from '@/types';
 import TimeRangeSelector from '@/components/TimeRangeSelector';
@@ -86,12 +86,6 @@ function buildDriverDay(
   return { driverId, driverName, date, gpsTrack, stops, deliveries };
 }
 
-const STORAGE_KEYS = {
-  selectedDriverId: 'maps.selectedDriverId',
-  selectedDate: 'maps.selectedDate',
-  timeRange: 'maps.timeRange',
-};
-
 const DEFAULT_DATE = '2020-08-01';
 
 export default function Home() {
@@ -103,6 +97,9 @@ export default function Home() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const skipFilterResetRef = useRef(false);
+
+  const FILTER_STORAGE_KEY = 'driver-history-filters';
 
   const fetchJson = useCallback(async <T,>(input: RequestInfo | URL): Promise<T> => {
     const res = await fetch(input);
@@ -131,56 +128,56 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const raw = window.localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as {
+        driverId?: string;
+        date?: string;
+        timeRange?: { start: string; end: string } | null;
+      };
 
-    const storedDriverId = window.localStorage.getItem(STORAGE_KEYS.selectedDriverId) ?? '';
-    const storedDate = window.localStorage.getItem(STORAGE_KEYS.selectedDate) ?? DEFAULT_DATE;
-    const storedTimeRange = window.localStorage.getItem(STORAGE_KEYS.timeRange);
-
-    setSelectedDriverId(storedDriverId);
-    setSelectedDate(storedDate);
-
-    if (storedTimeRange) {
-      try {
-        const parsed = JSON.parse(storedTimeRange) as { start: string; end: string };
-        const start = new Date(parsed.start);
-        const end = new Date(parsed.end);
+      skipFilterResetRef.current = true;
+      if (parsed.driverId) setSelectedDriverId(String(parsed.driverId));
+      if (parsed.date) setSelectedDate(parsed.date);
+      if (parsed.timeRange?.start && parsed.timeRange?.end) {
+        const start = new Date(parsed.timeRange.start);
+        const end = new Date(parsed.timeRange.end);
         if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
           setTimeRange({ start, end });
         }
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEYS.timeRange);
       }
+    } catch {
+      // Ignore invalid persisted data
     }
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    if (selectedDriverId) {
-      window.localStorage.setItem(STORAGE_KEYS.selectedDriverId, selectedDriverId);
-    } else {
-      window.localStorage.removeItem(STORAGE_KEYS.selectedDriverId);
-    }
-
-    window.localStorage.setItem(STORAGE_KEYS.selectedDate, selectedDate);
-
-    if (timeRange) {
-      window.localStorage.setItem(
-        STORAGE_KEYS.timeRange,
-        JSON.stringify({ start: timeRange.start.toISOString(), end: timeRange.end.toISOString() })
-      );
-    } else {
-      window.localStorage.removeItem(STORAGE_KEYS.timeRange);
-    }
+    const payload = {
+      driverId: selectedDriverId,
+      date: selectedDate,
+      timeRange: timeRange
+        ? { start: timeRange.start.toISOString(), end: timeRange.end.toISOString() }
+        : null,
+    };
+    window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(payload));
   }, [selectedDriverId, selectedDate, timeRange]);
 
+  useEffect(() => {
+    if (skipFilterResetRef.current) {
+      skipFilterResetRef.current = false;
+      return;
+    }
+    setTimeRange(null);
+    setSelectedStopId(null);
+  }, [selectedDriverId, selectedDate]);
   const fetchDriverData = useCallback(async () => {
     if (!selectedDriverId || !selectedDate) return;
 
     setLoading(true);
     setError(null);
     setDriverDay(null);
-    setTimeRange(null);
     setSelectedStopId(null);
 
     try {
@@ -212,16 +209,6 @@ export default function Home() {
     }
   }, [selectedDriverId, selectedDate, drivers]);
 
-  const handleClearFilters = () => {
-    setSelectedDriverId('');
-    setSelectedDate(DEFAULT_DATE);
-    setTimeRange(null);
-    setSelectedStopId(null);
-    setDriverDay(null);
-    setError(null);
-    setLoading(false);
-  };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-GB', {
       weekday: 'long',
@@ -229,6 +216,16 @@ export default function Home() {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const resetFilters = () => {
+    setSelectedDriverId('');
+    setSelectedDate(DEFAULT_DATE);
+    setTimeRange(null);
+    setSelectedStopId(null);
+    setDriverDay(null);
+    setError(null);
+    setLoading(false);
   };
 
   return (
@@ -267,22 +264,20 @@ export default function Home() {
               suppressHydrationWarning
             />
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={fetchDriverData}
-                disabled={!selectedDriverId || !selectedDate || loading}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? 'Loading...' : 'Load'}
-              </button>
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                Clear
-              </button>
-            </div>
+            <button
+              onClick={fetchDriverData}
+              disabled={!selectedDriverId || !selectedDate || loading}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? 'Loading...' : 'Load'}
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+            >
+              Reset
+            </button>
           </div>
         </div>
       </header>

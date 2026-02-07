@@ -34,10 +34,6 @@ export default function TimeRangeSelector({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    setEndMinutes(totalMinutes);
-  }, [totalMinutes]);
-
-  useEffect(() => {
     if (!timeRange) {
       setIsFiltering(false);
       setStartMinutes(0);
@@ -45,19 +41,19 @@ export default function TimeRangeSelector({
       return;
     }
 
-    const start = Math.max(
-      0,
-      Math.min(totalMinutes, Math.floor((timeRange.start.getTime() - minTime.getTime()) / 60000))
+    const clampMinutes = (value: number) => Math.min(Math.max(value, 0), totalMinutes);
+    const start = clampMinutes(
+      Math.floor((timeRange.start.getTime() - minTime.getTime()) / 60000)
     );
-    const end = Math.max(
-      0,
-      Math.min(totalMinutes, Math.ceil((timeRange.end.getTime() - minTime.getTime()) / 60000))
+    const endCandidate = clampMinutes(
+      Math.floor((timeRange.end.getTime() - minTime.getTime()) / 60000)
     );
+    const end = totalMinutes > 0 ? Math.max(endCandidate, start + 1) : endCandidate;
 
-    setStartMinutes(start);
-    setEndMinutes(Math.max(start + 1, end));
     setIsFiltering(true);
-  }, [timeRange, minTime, totalMinutes]);
+    setStartMinutes(start);
+    setEndMinutes(end);
+  }, [timeRange, totalMinutes, minTime]);
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -132,15 +128,6 @@ export default function TimeRangeSelector({
         <h3 className="font-semibold text-gray-900">Time Range</h3>
         <div className="flex items-center gap-2">
           <button
-            type="button"
-            onClick={() => setIsCollapsed((prev) => !prev)}
-            aria-expanded={!isCollapsed}
-            aria-controls="time-range-content"
-            className="px-2.5 py-1 rounded text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-          >
-            {isCollapsed ? 'Expand' : 'Collapse'}
-          </button>
-          <button
             onClick={toggleFiltering}
             className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
               isFiltering
@@ -149,6 +136,16 @@ export default function TimeRangeSelector({
             }`}
           >
             {isFiltering ? 'Clear Filter' : 'Enable Filter'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            className="px-2 py-1 rounded text-sm font-medium text-gray-600 hover:bg-gray-100"
+            aria-expanded={!isCollapsed}
+            aria-controls="time-range-content"
+            aria-label={isCollapsed ? 'Expand time range' : 'Collapse time range'}
+          >
+            {isCollapsed ? 'Show' : 'Hide'}
           </button>
         </div>
       </div>
@@ -213,7 +210,8 @@ export default function TimeRangeSelector({
         {/* Selected range indicator */}
         {isFiltering && (
           <div className="bg-blue-50 p-2 rounded text-sm text-blue-800">
-            Showing: {formatTime(minutesToTime(startMinutes))} - {formatTime(minutesToTime(endMinutes))}
+            Showing: {formatTime(minutesToTime(startMinutes))} -{' '}
+            {formatTime(minutesToTime(endMinutes))}
           </div>
         )}
         </div>
