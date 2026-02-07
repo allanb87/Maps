@@ -75,10 +75,18 @@ function buildDriverDay(
   return { driverId, driverName, date, gpsTrack, stops, deliveries };
 }
 
+const STORAGE_KEYS = {
+  selectedDriverId: 'maps.selectedDriverId',
+  selectedDate: 'maps.selectedDate',
+  timeRange: 'maps.timeRange',
+};
+
+const DEFAULT_DATE = '2020-08-01';
+
 export default function Home() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('2020-08-01');
+  const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
   const [driverDay, setDriverDay] = useState<DriverDay | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -109,6 +117,51 @@ export default function Home() {
       })
       .catch(err => console.error('Failed to fetch drivers:', err));
   }, [fetchJson]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const storedDriverId = window.localStorage.getItem(STORAGE_KEYS.selectedDriverId) ?? '';
+    const storedDate = window.localStorage.getItem(STORAGE_KEYS.selectedDate) ?? DEFAULT_DATE;
+    const storedTimeRange = window.localStorage.getItem(STORAGE_KEYS.timeRange);
+
+    setSelectedDriverId(storedDriverId);
+    setSelectedDate(storedDate);
+
+    if (storedTimeRange) {
+      try {
+        const parsed = JSON.parse(storedTimeRange) as { start: string; end: string };
+        const start = new Date(parsed.start);
+        const end = new Date(parsed.end);
+        if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+          setTimeRange({ start, end });
+        }
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEYS.timeRange);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (selectedDriverId) {
+      window.localStorage.setItem(STORAGE_KEYS.selectedDriverId, selectedDriverId);
+    } else {
+      window.localStorage.removeItem(STORAGE_KEYS.selectedDriverId);
+    }
+
+    window.localStorage.setItem(STORAGE_KEYS.selectedDate, selectedDate);
+
+    if (timeRange) {
+      window.localStorage.setItem(
+        STORAGE_KEYS.timeRange,
+        JSON.stringify({ start: timeRange.start.toISOString(), end: timeRange.end.toISOString() })
+      );
+    } else {
+      window.localStorage.removeItem(STORAGE_KEYS.timeRange);
+    }
+  }, [selectedDriverId, selectedDate, timeRange]);
 
   const fetchDriverData = useCallback(async () => {
     if (!selectedDriverId || !selectedDate) return;
@@ -147,6 +200,16 @@ export default function Home() {
       setLoading(false);
     }
   }, [selectedDriverId, selectedDate, drivers]);
+
+  const handleClearFilters = () => {
+    setSelectedDriverId('');
+    setSelectedDate(DEFAULT_DATE);
+    setTimeRange(null);
+    setSelectedStopId(null);
+    setDriverDay(null);
+    setError(null);
+    setLoading(false);
+  };
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-GB', {
@@ -193,13 +256,22 @@ export default function Home() {
               suppressHydrationWarning
             />
 
-            <button
-              onClick={fetchDriverData}
-              disabled={!selectedDriverId || !selectedDate || loading}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Loading...' : 'Load'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchDriverData}
+                disabled={!selectedDriverId || !selectedDate || loading}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Loading...' : 'Load'}
+              </button>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
       </header>

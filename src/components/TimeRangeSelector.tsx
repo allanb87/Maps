@@ -37,6 +37,28 @@ export default function TimeRangeSelector({
     setEndMinutes(totalMinutes);
   }, [totalMinutes]);
 
+  useEffect(() => {
+    if (!timeRange) {
+      setIsFiltering(false);
+      setStartMinutes(0);
+      setEndMinutes(totalMinutes);
+      return;
+    }
+
+    const start = Math.max(
+      0,
+      Math.min(totalMinutes, Math.floor((timeRange.start.getTime() - minTime.getTime()) / 60000))
+    );
+    const end = Math.max(
+      0,
+      Math.min(totalMinutes, Math.ceil((timeRange.end.getTime() - minTime.getTime()) / 60000))
+    );
+
+    setStartMinutes(start);
+    setEndMinutes(Math.max(start + 1, end));
+    setIsFiltering(true);
+  }, [timeRange, minTime, totalMinutes]);
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
