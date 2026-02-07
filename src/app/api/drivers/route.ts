@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import { getPool } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
 interface DriverRow extends RowDataPacket {
@@ -9,6 +9,7 @@ interface DriverRow extends RowDataPacket {
 
 export async function GET() {
   try {
+    const pool = getPool();
     const [rows] = await pool.query<DriverRow[]>(
       'SELECT driver_id, display_name FROM tbl_driver ORDER BY display_name'
     );
@@ -16,13 +17,15 @@ export async function GET() {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error fetching drivers:', message);
-    console.error('DB config:', {
-      host: process.env.MYSQL_HOST ?? '(not set)',
-      port: process.env.MYSQL_PORT ?? '(not set)',
-      user: process.env.MYSQL_USER ?? '(not set)',
-      database: process.env.MYSQL_DATABASE ?? '(not set)',
-      passwordSet: !!process.env.MYSQL_PASSWORD,
-    });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({
+      error: message,
+      dbConfig: {
+        host: process.env.MYSQL_HOST ?? '(not set)',
+        port: process.env.MYSQL_PORT ?? '(not set)',
+        user: process.env.MYSQL_USER ?? '(not set)',
+        database: process.env.MYSQL_DATABASE ?? '(not set)',
+        passwordSet: !!process.env.MYSQL_PASSWORD,
+      },
+    }, { status: 500 });
   }
 }

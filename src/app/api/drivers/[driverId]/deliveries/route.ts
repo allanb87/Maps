@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import { getPool } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
 interface DeliveryRow extends RowDataPacket {
@@ -23,6 +23,7 @@ export async function GET(
   }
 
   try {
+    const pool = getPool();
     const [rows] = await pool.query<DeliveryRow[]>(
       `SELECT job_id, job_datetime, latitude, longitude, status
        FROM tbl_job_history

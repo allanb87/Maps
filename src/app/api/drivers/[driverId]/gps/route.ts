@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import { getPool } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
 interface GPSRow extends RowDataPacket {
@@ -22,6 +22,7 @@ export async function GET(
   }
 
   try {
+    const pool = getPool();
     const [rows] = await pool.query<GPSRow[]>(
       `SELECT lat, lng, datetime, speed
        FROM tbl_driver_stats_2020_q3

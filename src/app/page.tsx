@@ -88,12 +88,18 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/drivers')
       .then(res => res.json())
-      .then((data: Driver[]) => {
+      .then(data => {
         if (Array.isArray(data)) {
           setDrivers(data);
+        } else if (data?.error) {
+          setError(`Driver API: ${data.error}`);
+          console.error('Driver API error:', data);
         }
       })
-      .catch(err => console.error('Failed to fetch drivers:', err));
+      .catch(err => {
+        setError(`Failed to fetch drivers: ${err.message}`);
+        console.error('Failed to fetch drivers:', err);
+      });
   }, []);
 
   const fetchDriverData = useCallback(async () => {
