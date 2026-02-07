@@ -3,7 +3,6 @@ import mysql from 'mysql2/promise';
 const requiredEnvVars = [
   'MYSQL_HOST',
   'MYSQL_USER',
-  'MYSQL_PASSWORD',
   'MYSQL_DATABASE',
 ] as const;
 
@@ -48,8 +47,18 @@ const CONNECTION_ERRORS = new Set([
   'PROTOCOL_CONNECTION_LOST',
 ]);
 
+function extractErrorCode(error: unknown): string | undefined {
+  let current = error;
+  while (current) {
+    const code = (current as { code?: string })?.code;
+    if (code) return code;
+    current = (current as { cause?: unknown })?.cause;
+  }
+  return undefined;
+}
+
 export function classifyDbError(error: unknown): { message: string; status: number } {
-  const code = (error as { code?: string })?.code;
+  const code = extractErrorCode(error);
   if (code && CONNECTION_ERRORS.has(code)) {
     return {
       message: `Database connection failed (${code}). Check MYSQL_HOST/MYSQL_PORT and that MySQL is running.`,
