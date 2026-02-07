@@ -19,6 +19,7 @@ export default function StopsList({
   onStopSelect,
 }: StopsListProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [collapsedJobs, setCollapsedJobs] = useState<Record<string, boolean>>({});
   const filteredStops = useMemo(() => {
     if (!timeRange) return stops;
     return stops.filter(
@@ -65,6 +66,10 @@ export default function StopsList({
     }
   }, [filteredStops, onStopSelect, selectedStopId]);
 
+  const toggleJobCollapsed = (stopId: string) => {
+    setCollapsedJobs((prev) => ({ ...prev, [stopId]: !prev[stopId] }));
+  };
+
   return (
     <div className="bg-white rounded-lg shadow flex flex-col h-full">
       <div className="p-4 border-b">
@@ -107,58 +112,82 @@ export default function StopsList({
               {filteredStops.map((stop, index) => {
                 const delivery = getDeliveryForStop(stop.id);
                 const isSelected = stop.id === selectedStopId;
+                const isJobCollapsed = collapsedJobs[stop.id] ?? false;
+                const isDelivery = stop.type === 'delivered';
+                const jobLabel = delivery ? `Job #${delivery.jobId}` : `Stop ${index + 1}`;
 
                 return (
                   <li
                     key={stop.id}
-                    onClick={() => onStopSelect(stop.id === selectedStopId ? null : stop.id)}
-                    className={`p-3 cursor-pointer transition-colors ${
+                    className={`p-3 transition-colors ${
                       isSelected
                         ? 'bg-blue-50 border-l-4 border-blue-500'
                         : 'hover:bg-gray-50 border-l-4 border-transparent'
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-200 text-gray-700">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <div className="font-medium text-gray-900 text-sm">
-                            {delivery ? `Job #${delivery.jobId}` : `Stop ${index + 1}`}
-                          </div>
+                    <div
+                      className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-pointer hover:shadow transition-shadow"
+                      onClick={() => onStopSelect(stop.id === selectedStopId ? null : stop.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                              isDelivery ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                            }`}
+                            aria-label={isDelivery ? 'Delivery' : 'Pickup'}
+                          >
+                            {isDelivery ? 'D' : 'P'}
+                          </span>
+                          <div className="font-medium text-gray-900 text-sm">{jobLabel}</div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              isDelivery ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {isDelivery ? 'Delivered' : 'Pickup'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleJobCollapsed(stop.id);
+                            }}
+                            className="text-xs text-gray-500 hover:text-gray-700"
+                            aria-expanded={!isJobCollapsed}
+                            aria-label={isJobCollapsed ? 'Expand job card' : 'Collapse job card'}
+                          >
+                            {isJobCollapsed ? 'Expand' : 'Collapse'}
+                          </button>
                         </div>
                       </div>
 
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          stop.type === 'delivered'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        {stop.type === 'delivered' ? 'Delivered' : 'Pickup'}
-                      </span>
-                    </div>
-
-                    {delivery?.jobDetails && (
-                      <div className="mt-1 ml-8 text-xs text-gray-600 space-y-0.5">
-                        {jobDetailKeys
-                          .map((key) => [key, delivery.jobDetails?.[key]] as const)
-                          .filter(([, value]) => value !== null && value !== undefined)
-                          .map(([key, value]) => (
-                            <div key={key}>
-                              <span className="text-gray-400">{formatFieldName(key)}:</span>{' '}
-                              {String(value)}
+                      {!isJobCollapsed && (
+                        <>
+                          {delivery?.jobDetails && (
+                            <div className="mt-2 text-xs text-gray-600 space-y-0.5">
+                              {jobDetailKeys
+                                .map((key) => [key, delivery.jobDetails?.[key]] as const)
+                                .filter(([, value]) => value !== null && value !== undefined)
+                                .map(([key, value]) => (
+                                  <div key={key}>
+                                    <span className="text-gray-400">{formatFieldName(key)}:</span>{' '}
+                                    {String(value)}
+                                  </div>
+                                ))}
                             </div>
-                          ))}
-                      </div>
-                    )}
+                          )}
 
-                    <div className="mt-1 ml-8 text-xs text-gray-500">
-                      {formatTime(stop.arrivalTime)}
-                      {isSelected && (
-                        <span className="ml-2 text-gray-400">Map point #{index + 1}</span>
+                          <div className="mt-2 text-xs text-gray-500">
+                            {formatTime(stop.arrivalTime)}
+                            {isSelected && (
+                              <span className="ml-2 text-gray-400">Map point #{index + 1}</span>
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
                   </li>
