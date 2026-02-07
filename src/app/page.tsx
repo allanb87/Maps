@@ -29,6 +29,7 @@ interface DeliveryRow {
   latitude: number;
   longitude: number;
   status: string;
+  [key: string]: unknown;
 }
 
 function buildDriverDay(
@@ -63,12 +64,22 @@ function buildDriverDay(
       type: stopType,
     });
 
+    // Extract tbl_job fields (everything beyond the known tbl_job_history columns)
+    const knownKeys = new Set(['job_id', 'job_datetime', 'latitude', 'longitude', 'status']);
+    const jobDetails: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (!knownKeys.has(key) && value !== null && value !== undefined) {
+        jobDetails[key] = value;
+      }
+    }
+
     deliveries.push({
       id: `delivery-${row.job_id}-${index}`,
       stopId,
       jobId: row.job_id,
       status: stopType,
       completedAt: jobTime,
+      jobDetails: Object.keys(jobDetails).length > 0 ? jobDetails : undefined,
     });
   });
 
