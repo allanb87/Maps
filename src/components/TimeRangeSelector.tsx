@@ -31,6 +31,7 @@ export default function TimeRangeSelector({
   const [startMinutes, setStartMinutes] = useState(0);
   const [endMinutes, setEndMinutes] = useState(totalMinutes);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     setEndMinutes(totalMinutes);
@@ -107,19 +108,31 @@ export default function TimeRangeSelector({
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900">Time Range</h3>
-        <button
-          onClick={toggleFiltering}
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            isFiltering
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-        >
-          {isFiltering ? 'Clear Filter' : 'Enable Filter'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            aria-expanded={!isCollapsed}
+            aria-controls="time-range-content"
+            className="px-2.5 py-1 rounded text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          >
+            {isCollapsed ? 'Expand' : 'Collapse'}
+          </button>
+          <button
+            onClick={toggleFiltering}
+            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+              isFiltering
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            {isFiltering ? 'Clear Filter' : 'Enable Filter'}
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-4">
+      {!isCollapsed && (
+        <div id="time-range-content" className="space-y-4">
         {/* Full day range display */}
         <div className="flex justify-between text-sm text-gray-500">
           <span>{formatTime(minTime)}</span>
@@ -181,7 +194,8 @@ export default function TimeRangeSelector({
             Showing: {formatTime(minutesToTime(startMinutes))} - {formatTime(minutesToTime(endMinutes))}
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

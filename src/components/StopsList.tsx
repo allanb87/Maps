@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Stop, Delivery, TimeRange } from '@/types';
 
 interface StopsListProps {
@@ -44,6 +44,8 @@ export default function StopsList({
     };
   }, [filteredStops]);
 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   useEffect(() => {
     if (selectedStopId && !filteredStops.some(stop => stop.id === selectedStopId)) {
       onStopSelect(null);
@@ -52,77 +54,92 @@ export default function StopsList({
 
   return (
     <div className="bg-white rounded-lg shadow flex flex-col h-full">
-      <div className="p-4 border-b">
-        <h3 className="font-semibold text-gray-900 mb-3">Stops & Jobs</h3>
-
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="bg-amber-50 p-2 rounded flex flex-col items-center text-center">
-            <span className="text-amber-700">Pickups</span>
-            <span className="mt-1 text-lg font-semibold text-amber-700">{stats.pickups}</span>
-          </div>
-          <div className="bg-green-50 p-2 rounded flex flex-col items-center text-center">
-            <span className="text-green-700">Deliveries</span>
-            <span className="mt-1 text-lg font-semibold text-green-700">{stats.delivered}</span>
-          </div>
-        </div>
+      <div className="p-4 border-b flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900">Stops & Jobs</h3>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed((prev) => !prev)}
+          aria-expanded={!isCollapsed}
+          aria-controls="stops-jobs-content"
+          className="px-2.5 py-1 rounded text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+        >
+          {isCollapsed ? 'Expand' : 'Collapse'}
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {filteredStops.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            No stops in selected time range
+      {!isCollapsed && (
+        <>
+          <div className="p-4 border-b">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-amber-50 p-2 rounded flex flex-col items-center text-center">
+                <span className="text-amber-700">Pickups</span>
+                <span className="mt-1 text-lg font-semibold text-amber-700">{stats.pickups}</span>
+              </div>
+              <div className="bg-green-50 p-2 rounded flex flex-col items-center text-center">
+                <span className="text-green-700">Deliveries</span>
+                <span className="mt-1 text-lg font-semibold text-green-700">{stats.delivered}</span>
+              </div>
+            </div>
           </div>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {filteredStops.map((stop, index) => {
-              const delivery = getDeliveryForStop(stop.id);
-              const isSelected = stop.id === selectedStopId;
 
-              return (
-                <li
-                  key={stop.id}
-                  onClick={() => onStopSelect(stop.id === selectedStopId ? null : stop.id)}
-                  className={`p-3 cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-blue-50 border-l-4 border-blue-500'
-                      : 'hover:bg-gray-50 border-l-4 border-transparent'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-200 text-gray-700">
-                        {index + 1}
-                      </span>
-                      <div>
-                        <div className="font-medium text-gray-900 text-sm">
-                          {delivery ? `Job #${delivery.jobId}` : `Stop ${index + 1}`}
-                        </div>
-                      </div>
-                    </div>
+          <div id="stops-jobs-content" className="flex-1 overflow-y-auto">
+            {filteredStops.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                No stops in selected time range
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {filteredStops.map((stop, index) => {
+                  const delivery = getDeliveryForStop(stop.id);
+                  const isSelected = stop.id === selectedStopId;
 
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        stop.type === 'delivered'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
+                  return (
+                    <li
+                      key={stop.id}
+                      onClick={() => onStopSelect(stop.id === selectedStopId ? null : stop.id)}
+                      className={`p-3 cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50 border-l-4 border-blue-500'
+                          : 'hover:bg-gray-50 border-l-4 border-transparent'
                       }`}
                     >
-                      {stop.type === 'delivered' ? 'Delivered' : 'Pickup'}
-                    </span>
-                  </div>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-200 text-gray-700">
+                            {index + 1}
+                          </span>
+                          <div>
+                            <div className="font-medium text-gray-900 text-sm">
+                              {delivery ? `Job #${delivery.jobId}` : `Stop ${index + 1}`}
+                            </div>
+                          </div>
+                        </div>
 
-                  <div className="mt-1 ml-8 text-xs text-gray-500">
-                    {formatTime(stop.arrivalTime)}
-                    {isSelected && (
-                      <span className="ml-2 text-gray-400">Map point #{index + 1}</span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${
+                            stop.type === 'delivered'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {stop.type === 'delivered' ? 'Delivered' : 'Pickup'}
+                        </span>
+                      </div>
+
+                      <div className="mt-1 ml-8 text-xs text-gray-500">
+                        {formatTime(stop.arrivalTime)}
+                        {isSelected && (
+                          <span className="ml-2 text-gray-400">Map point #{index + 1}</span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
