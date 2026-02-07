@@ -28,7 +28,6 @@ const sampleDrivers: Driver[] = [
 ];
 
 export default function Home() {
-  const [driverDay, setDriverDay] = useState<DriverDay | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('driver-001');
@@ -110,7 +109,10 @@ export default function Home() {
   if (!driverDay) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
-        <div className="text-gray-500">Loading driver data...</div>
+        <div className="text-center">
+          <div className="text-gray-500 mb-2">No data available</div>
+          <p className="text-sm text-gray-400">Select a different driver or date</p>
+        </div>
       </div>
     );
   }
