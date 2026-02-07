@@ -37,17 +37,21 @@ function buildDriverDay(
   gpsRows: GPSRow[],
   deliveryRows: DeliveryRow[]
 ): DriverDay {
-  const gpsTrack: GPSPoint[] = gpsRows.map(row => ({
-    lat: row.lat,
-    lng: row.lng,
-    timestamp: new Date(row.datetime),
-    speed: row.speed,
-  }));
+  const gpsTrack: GPSPoint[] = gpsRows
+    .filter(row => row.lat != null && row.lng != null)
+    .map(row => ({
+      lat: row.lat,
+      lng: row.lng,
+      timestamp: new Date(row.datetime),
+      speed: row.speed,
+    }));
 
   const stops: Stop[] = [];
   const deliveries: Delivery[] = [];
 
   deliveryRows.forEach((row, index) => {
+    if (row.latitude == null || row.longitude == null) return;
+
     const stopId = `stop-${row.job_id}-${index}`;
     const jobTime = new Date(row.job_datetime);
     const stopType = row.status === 'in transit' ? 'pickup' : 'delivered';
