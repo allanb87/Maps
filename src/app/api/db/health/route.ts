@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool, { dbConfigError } from '@/lib/db';
+import pool, { dbConfigError, classifyDbError } from '@/lib/db';
 
 export async function GET(request: Request) {
   const requiredToken = process.env.HEALTHCHECK_TOKEN;
@@ -22,9 +22,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Database healthcheck failed:', error);
+    const classified = classifyDbError(error);
     return NextResponse.json(
-      { ok: false, error: 'Database not reachable' },
-      { status: 503 }
+      { ok: false, error: classified.message || 'Database not reachable' },
+      { status: classified.status }
     );
   }
 }
