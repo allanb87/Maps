@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Driver, DriverDay, GPSPoint, Stop, Delivery, TimeRange } from '@/types';
 import TimeRangeSelector from '@/components/TimeRangeSelector';
@@ -87,6 +87,9 @@ export default function Home() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [driverSearch, setDriverSearch] = useState('');
+  const [driverDropdownOpen, setDriverDropdownOpen] = useState(false);
+  const driverDropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchJson = useCallback(async <T,>(input: RequestInfo | URL): Promise<T> => {
     const res = await fetch(input);
@@ -101,6 +104,23 @@ export default function Home() {
     }
     return res.json() as Promise<T>;
   }, []);
+
+  // Close driver dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (driverDropdownRef.current && !driverDropdownRef.current.contains(e.target as Node)) {
+        setDriverDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredDrivers = drivers.filter(d =>
+    d.display_name.toLowerCase().includes(driverSearch.toLowerCase())
+  );
+
+  const selectedDriverName = drivers.find(d => String(d.driver_id) === selectedDriverId)?.display_name ?? '';
 
   // Fetch drivers list on mount
   useEffect(() => {
@@ -177,18 +197,46 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <select
-              value={selectedDriverId}
-              onChange={e => setSelectedDriverId(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Driver</option>
-              {drivers.map(d => (
-                <option key={d.driver_id} value={d.driver_id}>
-                  {d.display_name}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={driverDropdownRef}>
+              <input
+                type="text"
+                placeholder="Search driver..."
+                value={driverDropdownOpen ? driverSearch : selectedDriverName || driverSearch}
+                onChange={e => {
+                  setDriverSearch(e.target.value);
+                  setDriverDropdownOpen(true);
+                  if (!e.target.value) setSelectedDriverId('');
+                }}
+                onFocus={() => {
+                  setDriverDropdownOpen(true);
+                  setDriverSearch('');
+                }}
+                className="w-56 border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {driverDropdownOpen && (
+                <ul className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg">
+                  {filteredDrivers.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-gray-400">No drivers found</li>
+                  ) : (
+                    filteredDrivers.map(d => (
+                      <li
+                        key={d.driver_id}
+                        onClick={() => {
+                          setSelectedDriverId(String(d.driver_id));
+                          setDriverSearch('');
+                          setDriverDropdownOpen(false);
+                        }}
+                        className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
+                          String(d.driver_id) === selectedDriverId ? 'bg-blue-50 font-medium' : ''
+                        }`}
+                      >
+                        {d.display_name}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
 
             <input
               type="date"
@@ -216,20 +264,15 @@ export default function Home() {
         <aside className="w-80 flex-shrink-0 bg-gray-50 p-4 flex flex-col gap-4 overflow-y-auto">
           {driverDay && (
             <>
+              <StopsList
+                stops={driverDay.stops}
+                timeRange={timeRange}
+              />
               <TimeRangeSelector
                 gpsTrack={driverDay.gpsTrack}
                 timeRange={timeRange}
                 onTimeRangeChange={setTimeRange}
               />
-              <div className="flex-1 min-h-0">
-                <StopsList
-                  stops={driverDay.stops}
-                  deliveries={driverDay.deliveries}
-                  timeRange={timeRange}
-                  selectedStopId={selectedStopId}
-                  onStopSelect={setSelectedStopId}
-                />
-              </div>
             </>
           )}
           {!driverDay && !loading && !error && (
