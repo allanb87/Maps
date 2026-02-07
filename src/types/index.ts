@@ -12,17 +12,20 @@ export interface Stop {
   arrivalTime: Date;
   departureTime: Date;
   duration: number; // minutes
-  type: 'delivery' | 'break' | 'unknown';
+  type: 'pickup' | 'delivered' | 'break' | 'unknown';
 }
 
 export interface Delivery {
   id: string;
   stopId: string;
-  address: string;
-  customerName: string;
-  status: 'completed' | 'failed' | 'pending';
+  jobId: number;
+  status: 'pickup' | 'delivered';
   completedAt?: Date;
-  notes?: string;
+}
+
+export interface Driver {
+  driver_id: number;
+  display_name: string;
 }
 
 export interface DriverDay {
