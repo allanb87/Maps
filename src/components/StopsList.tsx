@@ -18,11 +18,10 @@ export default function StopsList({
   selectedStopId,
   onStopSelect,
 }: StopsListProps) {
-  // Filter stops by time range
   const filteredStops = useMemo(() => {
     if (!timeRange) return stops;
     return stops.filter(
-      stop => stop.arrivalTime >= timeRange.start && stop.departureTime <= timeRange.end
+      stop => stop.arrivalTime >= timeRange.start && stop.arrivalTime <= timeRange.end
     );
   }, [stops, timeRange]);
 
@@ -35,52 +34,37 @@ export default function StopsList({
   };
 
   const stats = useMemo(() => {
-    const deliveryStops = filteredStops.filter(s => s.type === 'delivery');
-    const completedDeliveries = deliveryStops.filter(s => {
-      const delivery = getDeliveryForStop(s.id);
-      return delivery?.status === 'completed';
-    });
-    const failedDeliveries = deliveryStops.filter(s => {
-      const delivery = getDeliveryForStop(s.id);
-      return delivery?.status === 'failed';
-    });
+    const pickups = filteredStops.filter(s => s.type === 'pickup');
+    const delivered = filteredStops.filter(s => s.type === 'delivered');
 
     return {
       total: filteredStops.length,
-      deliveries: deliveryStops.length,
-      completed: completedDeliveries.length,
-      failed: failedDeliveries.length,
-      breaks: filteredStops.filter(s => s.type === 'break').length,
+      pickups: pickups.length,
+      delivered: delivered.length,
     };
-  }, [filteredStops, deliveries]);
+  }, [filteredStops]);
 
   return (
     <div className="bg-white rounded-lg shadow flex flex-col h-full">
       <div className="p-4 border-b">
-        <h3 className="font-semibold text-gray-900 mb-3">Stops & Deliveries</h3>
+        <h3 className="font-semibold text-gray-900 mb-3">Stops & Jobs</h3>
 
-        {/* Stats summary */}
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="bg-gray-50 p-2 rounded">
-            <span className="text-gray-500">Total Stops</span>
+            <span className="text-gray-500">Total</span>
             <span className="float-right font-medium">{stats.total}</span>
           </div>
+          <div className="bg-amber-50 p-2 rounded">
+            <span className="text-amber-700">Pickups</span>
+            <span className="float-right font-medium text-amber-700">{stats.pickups}</span>
+          </div>
           <div className="bg-green-50 p-2 rounded">
-            <span className="text-green-700">Completed</span>
-            <span className="float-right font-medium text-green-700">{stats.completed}</span>
-          </div>
-          <div className="bg-red-50 p-2 rounded">
-            <span className="text-red-700">Failed</span>
-            <span className="float-right font-medium text-red-700">{stats.failed}</span>
-          </div>
-          <div className="bg-blue-50 p-2 rounded">
-            <span className="text-blue-700">Breaks</span>
-            <span className="float-right font-medium text-blue-700">{stats.breaks}</span>
+            <span className="text-green-700">Delivered</span>
+            <span className="float-right font-medium text-green-700">{stats.delivered}</span>
           </div>
         </div>
       </div>
 
-      {/* Stops list */}
       <div className="flex-1 overflow-y-auto">
         {filteredStops.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
@@ -108,50 +92,26 @@ export default function StopsList({
                         {index + 1}
                       </span>
                       <div>
-                        {stop.type === 'delivery' && delivery ? (
-                          <>
-                            <div className="font-medium text-gray-900 text-sm">
-                              {delivery.address}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {delivery.customerName}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="font-medium text-blue-600 text-sm">
-                            Break
-                          </div>
-                        )}
+                        <div className="font-medium text-gray-900 text-sm">
+                          {delivery ? `Job #${delivery.jobId}` : `Stop ${index + 1}`}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Status badge */}
-                    {stop.type === 'delivery' && delivery && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          delivery.status === 'completed'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {delivery.status}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-1 ml-8 flex items-center gap-3 text-xs text-gray-500">
-                    <span>
-                      {formatTime(stop.arrivalTime)} - {formatTime(stop.departureTime)}
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        stop.type === 'delivered'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {stop.type === 'delivered' ? 'Delivered' : 'Pickup'}
                     </span>
-                    <span className="text-gray-400">|</span>
-                    <span>{stop.duration} min</span>
                   </div>
 
-                  {delivery?.notes && (
-                    <div className="mt-1 ml-8 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded inline-block">
-                      {delivery.notes}
-                    </div>
-                  )}
+                  <div className="mt-1 ml-8 text-xs text-gray-500">
+                    {formatTime(stop.arrivalTime)}
+                  </div>
                 </li>
               );
             })}
