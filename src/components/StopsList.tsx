@@ -38,6 +38,17 @@ export default function StopsList({
     return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
+  const jobDetailKeys = useMemo(
+    () => [
+      'master_account_name',
+      'pickup_location_name',
+      'delivery_location_name',
+      'service_name',
+      'order_eta',
+    ],
+    []
+  );
+
   const stats = useMemo(() => {
     const pickups = filteredStops.filter(s => s.type === 'pickup');
     const delivered = filteredStops.filter(s => s.type === 'delivered');
@@ -58,7 +69,7 @@ export default function StopsList({
     <div className="bg-white rounded-lg shadow flex flex-col h-full">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Stops & Jobs</h3>
+          <h3 className="font-semibold text-gray-900">Job List</h3>
           <button
             type="button"
             onClick={() => setIsCollapsed((prev) => !prev)}
@@ -132,12 +143,15 @@ export default function StopsList({
 
                     {delivery?.jobDetails && (
                       <div className="mt-1 ml-8 text-xs text-gray-600 space-y-0.5">
-                        {Object.entries(delivery.jobDetails).map(([key, value]) => (
-                          <div key={key}>
-                            <span className="text-gray-400">{formatFieldName(key)}:</span>{' '}
-                            {String(value)}
-                          </div>
-                        ))}
+                        {jobDetailKeys
+                          .map((key) => [key, delivery.jobDetails?.[key]] as const)
+                          .filter(([, value]) => value !== null && value !== undefined)
+                          .map(([key, value]) => (
+                            <div key={key}>
+                              <span className="text-gray-400">{formatFieldName(key)}:</span>{' '}
+                              {String(value)}
+                            </div>
+                          ))}
                       </div>
                     )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { GPSPoint, Stop, Delivery, TimeRange } from '@/types';
 import 'leaflet/dist/leaflet.css';
@@ -60,7 +60,7 @@ function MapBoundsUpdater({ points, stops }: { points: GPSPoint[]; stops: Stop[]
     ];
     if (allCoords.length > 0) {
       const bounds = L.latLngBounds(allCoords);
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     }
   }, [map, points, stops]);
 
@@ -106,91 +106,129 @@ export default function DriverMap({
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatFieldName = (key: string) => {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const jobDetailKeys = useMemo(
+    () => [
+      'master_account_name',
+      'pickup_location_name',
+      'delivery_location_name',
+      'service_name',
+      'order_eta',
+    ],
+    []
+  );
+
+  const selectedStop = useMemo(
+    () => stops.find(stop => stop.id === selectedStopId) ?? null,
+    [stops, selectedStopId]
+  );
+
+  const selectedDelivery = useMemo(
+    () => deliveries.find(delivery => delivery.stopId === selectedStopId) ?? null,
+    [deliveries, selectedStopId]
+  );
+
   if (typeof window === 'undefined') {
     return <div className="h-full w-full bg-gray-200 flex items-center justify-center">Loading map...</div>;
   }
 
   return (
-    <MapContainer
-      center={[51.5074, -0.1278]}
-      zoom={13}
-      className="h-full w-full"
-      scrollWheelZoom={true}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-
-      <MapBoundsUpdater points={filteredTrack} stops={filteredStops} />
-
-      {/* Route polyline */}
-      {routePositions.length > 1 && (
-        <Polyline
-          positions={routePositions}
-          pathOptions={{
-            color: '#3b82f6',
-            weight: 4,
-            opacity: 0.8,
-          }}
+    <div className="h-full w-full relative">
+      <MapContainer
+        center={[-25.2744, 133.7751]}
+        zoom={4}
+        className="h-full w-full"
+        scrollWheelZoom={true}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-      )}
 
-      {/* Start marker */}
-      {filteredTrack.length > 0 && (
-        <Marker position={[filteredTrack[0].lat, filteredTrack[0].lng]} icon={startIcon}>
-          <Popup>
-            <div className="text-sm">
-              <strong>Start</strong>
-              <br />
-              {formatTime(filteredTrack[0].timestamp)}
-            </div>
-          </Popup>
-        </Marker>
-      )}
+        <MapBoundsUpdater points={filteredTrack} stops={filteredStops} />
 
-      {/* Stop markers */}
-      {filteredStops.map((stop, index) => {
-        const delivery = getDeliveryForStop(stop.id);
-        const isSelected = stop.id === selectedStopId;
-
-        return (
-          <Marker
-            key={stop.id}
-            position={[stop.lat, stop.lng]}
-            icon={getStopIcon(stop, isSelected)}
-            zIndexOffset={isSelected ? 1000 : 0}
-            eventHandlers={{
-              click: () => onStopSelect(stop.id === selectedStopId ? null : stop.id),
+        {/* Route polyline */}
+        {routePositions.length > 1 && (
+          <Polyline
+            positions={routePositions}
+            pathOptions={{
+              color: '#3b82f6',
+              weight: 4,
+              opacity: 0.8,
             }}
-          >
-            <Popup>
-              <div className="text-sm min-w-[150px]">
-                <strong className={stop.type === 'pickup' ? 'text-amber-600' : 'text-green-600'}>
-                  {stop.type === 'pickup' ? 'Pickup (In Transit)' : 'Delivered'}
-                </strong>
-                {delivery && (
-                  <>
-                    <br />
-                    <span className="text-gray-600">Job #{delivery.jobId}</span>
-                    {delivery.jobDetails && Object.entries(delivery.jobDetails).map(([key, value]) => (
-                      <span key={key} className="block text-gray-500 text-xs">
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}: {String(value)}
-                      </span>
-                    ))}
-                  </>
-                )}
-                <br />
-                <span className="text-gray-500">Map point #{index + 1}</span>
-                <hr className="my-1" />
-                <span className="text-gray-500">
-                  {formatTime(stop.arrivalTime)}
-                </span>
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
-    </MapContainer>
+          />
+        )}
+
+        {/* Start marker */}
+        {filteredTrack.length > 0 && (
+          <Marker position={[filteredTrack[0].lat, filteredTrack[0].lng]} icon={startIcon} />
+        )}
+
+        {/* Stop markers */}
+        {filteredStops.map((stop) => {
+          const isSelected = stop.id === selectedStopId;
+
+          return (
+            <Marker
+              key={stop.id}
+              position={[stop.lat, stop.lng]}
+              icon={getStopIcon(stop, isSelected)}
+              zIndexOffset={isSelected ? 1000 : 0}
+              eventHandlers={{
+                click: () => onStopSelect(stop.id === selectedStopId ? null : stop.id),
+              }}
+            />
+          );
+        })}
+      </MapContainer>
+
+      {selectedStop && (
+        <div className="absolute top-4 right-4 w-80 max-w-[90%] bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-[1000]">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h4
+                className={`text-sm font-semibold ${
+                  selectedStop.type === 'pickup' ? 'text-amber-600' : 'text-green-600'
+                }`}
+              >
+                {selectedStop.type === 'pickup' ? 'Pickup (In Transit)' : 'Delivered'}
+              </h4>
+              {selectedDelivery && (
+                <p className="text-xs text-gray-500 mt-1">Job #{selectedDelivery.jobId}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onStopSelect(null)}
+              className="text-xs text-gray-500 hover:text-gray-700"
+              aria-label="Close details"
+            >
+              Close
+            </button>
+          </div>
+
+          {selectedDelivery?.jobDetails && (
+            <div className="mt-3 space-y-1 text-xs text-gray-600">
+              {jobDetailKeys
+                .map((key) => [key, selectedDelivery.jobDetails?.[key]] as const)
+                .filter(([, value]) => value !== null && value !== undefined)
+                .map(([key, value]) => (
+                  <div key={key} className="flex items-start justify-between gap-2">
+                    <span className="text-gray-400">{formatFieldName(key)}:</span>
+                    <span className="text-right text-gray-700">{String(value)}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <div className="mt-3 text-xs text-gray-500">
+            {formatTime(selectedStop.arrivalTime)}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
