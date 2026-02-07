@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import pool, { dbConfigError } from '@/lib/db';
 
 export async function GET(request: Request) {
   const requiredToken = process.env.HEALTHCHECK_TOKEN;
@@ -8,6 +8,13 @@ export async function GET(request: Request) {
     if (providedToken !== requiredToken) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
+  }
+
+  if (!pool) {
+    return NextResponse.json(
+      { ok: false, error: dbConfigError ?? 'Database not configured' },
+      { status: 503 }
+    );
   }
 
   try {
