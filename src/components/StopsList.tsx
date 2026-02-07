@@ -78,12 +78,23 @@ export default function StopsList({
           <button
             type="button"
             onClick={() => setIsCollapsed((prev) => !prev)}
-            className="px-2 py-1 rounded text-sm font-medium text-gray-600 hover:bg-gray-100"
+            className="p-1 rounded text-gray-600 hover:bg-gray-100"
             aria-expanded={!isCollapsed}
             aria-controls="stops-jobs-content"
-            aria-label={isCollapsed ? 'Expand stops list' : 'Collapse stops list'}
+            aria-label={isCollapsed ? 'Expand job list' : 'Collapse job list'}
           >
-            {isCollapsed ? 'Show' : 'Hide'}
+            <svg
+              className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+                clipRule="evenodd"
+              />
+            </svg>
           </button>
         </div>
 
@@ -114,7 +125,7 @@ export default function StopsList({
                 const isSelected = stop.id === selectedStopId;
                 const isJobCollapsed = collapsedJobs[stop.id] ?? false;
                 const isDelivery = stop.type === 'delivered';
-                const jobLabel = delivery ? `Job #${delivery.jobId}` : `Stop ${index + 1}`;
+                const jobLabel = delivery ? `#${delivery.jobId}` : `Stop ${index + 1}`;
 
                 return (
                   <li
@@ -143,24 +154,30 @@ export default function StopsList({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              isDelivery ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                            }`}
-                          >
-                            {isDelivery ? 'Delivered' : 'Pickup'}
-                          </span>
                           <button
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
                               toggleJobCollapsed(stop.id);
                             }}
-                            className="text-xs text-gray-500 hover:text-gray-700"
+                            className="text-gray-500 hover:text-gray-700"
                             aria-expanded={!isJobCollapsed}
                             aria-label={isJobCollapsed ? 'Expand job card' : 'Collapse job card'}
                           >
-                            {isJobCollapsed ? 'Expand' : 'Collapse'}
+                            <svg
+                              className={`w-4 h-4 transition-transform ${
+                                isJobCollapsed ? 'rotate-180' : ''
+                              }`}
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
                           </button>
                         </div>
                       </div>

@@ -1,45 +1,8 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { GoogleMap, Marker, Polyline, useLoadScript } from '@react-google-maps/api';
 import { GPSPoint, Stop, Delivery, TimeRange } from '@/types';
-import 'leaflet/dist/leaflet.css';
-
-const pickupIcon = L.divIcon({
-  className: 'custom-marker',
-  html: `<div style="background-color: #f59e0b; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-});
-
-const deliveredIcon = L.divIcon({
-  className: 'custom-marker',
-  html: `<div style="background-color: #22c55e; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-});
-
-const selectedPickupIcon = L.divIcon({
-  className: 'custom-marker',
-  html: `<div style="background-color: #f59e0b; width: 30px; height: 30px; border-radius: 50%; border: 4px solid #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.35), 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-});
-
-const selectedDeliveredIcon = L.divIcon({
-  className: 'custom-marker',
-  html: `<div style="background-color: #22c55e; width: 30px; height: 30px; border-radius: 50%; border: 4px solid #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.35), 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-});
-
-const startIcon = L.divIcon({
-  className: 'custom-marker',
-  html: `<div style="background-color: #000; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">S</div>`,
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-});
 
 interface DriverMapProps {
   gpsTrack: GPSPoint[];
@@ -50,23 +13,6 @@ interface DriverMapProps {
   onStopSelect: (stopId: string | null) => void;
 }
 
-function MapBoundsUpdater({ points, stops }: { points: GPSPoint[]; stops: Stop[] }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const allCoords: [number, number][] = [
-      ...points.map(p => [p.lat, p.lng] as [number, number]),
-      ...stops.map(s => [s.lat, s.lng] as [number, number]),
-    ];
-    if (allCoords.length > 0) {
-      const bounds = L.latLngBounds(allCoords);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-    }
-  }, [map, points, stops]);
-
-  return null;
-}
-
 export default function DriverMap({
   gpsTrack,
   stops,
@@ -75,6 +21,13 @@ export default function DriverMap({
   selectedStopId,
   onStopSelect,
 }: DriverMapProps) {
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const hasApiKey = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+  });
+
   const filteredTrack = useMemo(() => {
     if (!timeRange) return gpsTrack;
     return gpsTrack.filter(
@@ -93,13 +46,6 @@ export default function DriverMap({
 
   const getDeliveryForStop = (stopId: string) => {
     return deliveries.find(d => d.stopId === stopId);
-  };
-
-  const getStopIcon = (stop: Stop, isSelected: boolean) => {
-    if (isSelected) {
-      return stop.type === 'pickup' ? selectedPickupIcon : selectedDeliveredIcon;
-    }
-    return stop.type === 'pickup' ? pickupIcon : deliveredIcon;
   };
 
   const formatTime = (date: Date) => {
@@ -131,59 +77,120 @@ export default function DriverMap({
     [deliveries, selectedStopId]
   );
 
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const allCoords = [
+      ...filteredTrack.map(point => ({ lat: point.lat, lng: point.lng })),
+      ...filteredStops.map(stop => ({ lat: stop.lat, lng: stop.lng })),
+    ];
+    if (allCoords.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    allCoords.forEach((coord) => bounds.extend(coord));
+    mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+    const zoom = mapRef.current.getZoom();
+    if (typeof zoom === 'number' && zoom > 16) {
+      mapRef.current.setZoom(16);
+    }
+  }, [filteredTrack, filteredStops, mapReady]);
+
   if (typeof window === 'undefined') {
     return <div className="h-full w-full bg-gray-200 flex items-center justify-center">Loading map...</div>;
   }
 
+  if (loadError) {
+    return (
+      <div className="h-full w-full bg-gray-200 flex items-center justify-center text-gray-600">
+        Failed to load Google Maps
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="h-full w-full bg-gray-200 flex items-center justify-center text-gray-600">
+        {hasApiKey ? 'Loading map...' : 'Missing Google Maps API key'}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full w-full relative">
-      <MapContainer
-        center={[-25.2744, 133.7751]}
+      <GoogleMap
+        center={{ lat: -25.2744, lng: 133.7751 }}
         zoom={4}
-        className="h-full w-full"
-        scrollWheelZoom={true}
+        mapContainerClassName="h-full w-full"
+        options={{
+          mapTypeId: 'roadmap',
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        }}
+        onLoad={(map) => {
+          mapRef.current = map;
+          setMapReady(true);
+        }}
+        onUnmount={() => {
+          mapRef.current = null;
+          setMapReady(false);
+        }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-        <MapBoundsUpdater points={filteredTrack} stops={filteredStops} />
-
         {/* Route polyline */}
         {routePositions.length > 1 && (
           <Polyline
-            positions={routePositions}
-            pathOptions={{
-              color: '#3b82f6',
-              weight: 4,
-              opacity: 0.8,
+            path={routePositions.map(([lat, lng]) => ({ lat, lng }))}
+            options={{
+              strokeColor: '#3b82f6',
+              strokeOpacity: 0.8,
+              strokeWeight: 4,
             }}
           />
         )}
 
         {/* Start marker */}
         {filteredTrack.length > 0 && (
-          <Marker position={[filteredTrack[0].lat, filteredTrack[0].lng]} icon={startIcon} />
+          <Marker
+            position={{ lat: filteredTrack[0].lat, lng: filteredTrack[0].lng }}
+            label={{ text: 'S', color: '#ffffff', fontWeight: '700' }}
+            icon={{
+              path: google.maps.SymbolPath.CIRCLE,
+              fillColor: '#000000',
+              fillOpacity: 1,
+              scale: 10,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
+          />
         )}
 
         {/* Stop markers */}
         {filteredStops.map((stop) => {
           const isSelected = stop.id === selectedStopId;
+          const isDelivery = stop.type === 'delivered';
 
           return (
             <Marker
               key={stop.id}
-              position={[stop.lat, stop.lng]}
-              icon={getStopIcon(stop, isSelected)}
-              zIndexOffset={isSelected ? 1000 : 0}
-              eventHandlers={{
-                click: () => onStopSelect(stop.id === selectedStopId ? null : stop.id),
+              position={{ lat: stop.lat, lng: stop.lng }}
+              zIndex={isSelected ? 1000 : 0}
+              onClick={() => onStopSelect(stop.id === selectedStopId ? null : stop.id)}
+              icon={{
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: isDelivery ? '#22c55e' : '#f59e0b',
+                fillOpacity: 1,
+                scale: isSelected ? 12 : 9,
+                strokeColor: isSelected ? '#2563eb' : '#ffffff',
+                strokeWeight: isSelected ? 3 : 2,
               }}
             />
           );
         })}
-      </MapContainer>
+      </GoogleMap>
+
+      {!hasApiKey && (
+        <div className="absolute top-4 left-4 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs rounded-md px-3 py-2 shadow-sm">
+          Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to enable Google Maps.
+        </div>
+      )}
 
       {selectedStop && (
         <div className="absolute top-4 right-4 w-80 max-w-[90%] bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-[1000]">
