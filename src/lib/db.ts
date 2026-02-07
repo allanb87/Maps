@@ -31,12 +31,32 @@ const pool = dbConfigError
       connectionLimit: 10,
       maxIdle: 10,
       idleTimeout: 60000,
+      connectTimeout: 10000,
     });
 
 if (!dbConfigError && process.env.NODE_ENV !== 'production') {
   console.info(
     `MySQL pool configured for ${process.env.MYSQL_HOST}:${port}/${process.env.MYSQL_DATABASE}`
   );
+}
+
+const CONNECTION_ERRORS = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'PROTOCOL_CONNECTION_LOST',
+]);
+
+export function classifyDbError(error: unknown): { message: string; status: number } {
+  const code = (error as { code?: string })?.code;
+  if (code && CONNECTION_ERRORS.has(code)) {
+    return {
+      message: `Database connection failed (${code}). Check MYSQL_HOST/MYSQL_PORT and that MySQL is running.`,
+      status: 503,
+    };
+  }
+  return { message: '', status: 500 };
 }
 
 export default pool;

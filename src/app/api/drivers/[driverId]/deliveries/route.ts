@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool, { dbConfigError } from '@/lib/db';
+import pool, { dbConfigError, classifyDbError } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
 interface DeliveryRow extends RowDataPacket {
@@ -41,6 +41,10 @@ export async function GET(
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Error fetching deliveries:', error);
-    return NextResponse.json({ error: 'Failed to fetch deliveries' }, { status: 500 });
+    const classified = classifyDbError(error);
+    return NextResponse.json(
+      { error: classified.message || 'Failed to fetch deliveries' },
+      { status: classified.status }
+    );
   }
 }
