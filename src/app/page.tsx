@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Driver, DriverDay, GPSPoint, Stop, Delivery, TimeRange } from '@/types';
 import TimeRangeSelector from '@/components/TimeRangeSelector';
+import SearchableSelect from '@/components/SearchableSelect';
 import StopsList from '@/components/StopsList';
 
 const DriverMap = dynamic(() => import('@/components/DriverMap'), {
@@ -173,18 +174,15 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <select
+            <SearchableSelect
+              options={drivers}
               value={selectedDriverId}
-              onChange={e => setSelectedDriverId(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Driver</option>
-              {drivers.map(d => (
-                <option key={d.driver_id} value={d.driver_id}>
-                  {d.display_name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedDriverId}
+              getOptionValue={driver => String(driver.driver_id)}
+              getOptionLabel={driver => driver.display_name}
+              placeholder="Select Driver"
+              className="min-w-[200px]"
+            />
 
             <input
               type="date"
