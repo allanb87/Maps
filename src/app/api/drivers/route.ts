@@ -15,6 +15,16 @@ export async function GET() {
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Error fetching drivers:', error);
+    const err = error as { code?: string };
+    if (err?.code === 'ECONNREFUSED') {
+      return NextResponse.json(
+        {
+          error:
+            'Database connection refused. Check MYSQL_HOST/MYSQL_PORT and that MySQL is running.',
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: 'Failed to fetch drivers' }, { status: 500 });
   }
 }
