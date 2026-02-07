@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import pool, { dbConfigError } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
 interface DeliveryRow extends RowDataPacket {
@@ -20,6 +20,13 @@ export async function GET(
 
   if (!date) {
     return NextResponse.json({ error: 'date query parameter is required (YYYY-MM-DD)' }, { status: 400 });
+  }
+
+  if (!pool) {
+    return NextResponse.json(
+      { error: dbConfigError ?? 'Database not configured' },
+      { status: 503 }
+    );
   }
 
   try {

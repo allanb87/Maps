@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import pool, { dbConfigError } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 
 interface DriverRow extends RowDataPacket {
@@ -8,6 +8,13 @@ interface DriverRow extends RowDataPacket {
 }
 
 export async function GET() {
+  if (!pool) {
+    return NextResponse.json(
+      { error: dbConfigError ?? 'Database not configured' },
+      { status: 503 }
+    );
+  }
+
   try {
     const [rows] = await pool.query<DriverRow[]>(
       'SELECT driver_id, display_name FROM tbl_driver ORDER BY display_name'
