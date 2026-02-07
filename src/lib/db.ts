@@ -56,6 +56,11 @@ export function classifyDbError(error: unknown): { message: string; status: numb
       status: 503,
     };
   }
+  // Surface the actual error in development so it's diagnosable
+  if (process.env.NODE_ENV !== 'production') {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { message: msg, status: 500 };
+  }
   return { message: '', status: 500 };
 }
 
