@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { TimeRange } from '@/types';
-import { useDrivers, useDriverDay } from '@/hooks/useDriverData';
+import { DriverDay, TimeRange, Driver } from '@/types';
+import { getSampleDriverDay } from '@/data/sampleData';
 import TimeRangeSelector from '@/components/TimeRangeSelector';
 import StopsList from '@/components/StopsList';
 import DriverSelector from '@/components/DriverSelector';
@@ -20,30 +20,41 @@ const DriverMap = dynamic(() => import('@/components/DriverMap'), {
   ),
 });
 
+// Sample drivers for demo (will be replaced with database data)
+const sampleDrivers: Driver[] = [
+  { id: 'driver-001', name: 'Alex Thompson', vehicleId: 'VAN-001' },
+  { id: 'driver-002', name: 'Sarah Johnson', vehicleId: 'VAN-002' },
+  { id: 'driver-003', name: 'Mike Williams', vehicleId: 'VAN-003' },
+];
+
 export default function Home() {
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('driver-001');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  // Fetch drivers from API/database
-  const { drivers, loading: driversLoading, error: driversError } = useDrivers();
+  useEffect(() => {
+    // Load sample data (will be replaced with API call to database)
+    const data = getSampleDriverDay();
+    setDriverDay(data);
+  }, []);
 
-  // Fetch driver day data from API/database
-  const { driverDay, loading: dayLoading, error: dayError } = useDriverDay(selectedDriverId, selectedDate);
-
-  // Handle driver change
+  // Handle driver change (placeholder for database integration)
   const handleDriverChange = (driverId: string) => {
     setSelectedDriverId(driverId);
     setTimeRange(null); // Reset time filter when driver changes
-    setSelectedStopId(null);
+    // TODO: Fetch driver data from database
+    // const data = await fetchDriverDay(driverId, selectedDate);
+    // setDriverDay(data);
   };
 
-  // Handle date change
+  // Handle date change (placeholder for database integration)
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
     setTimeRange(null); // Reset time range when date changes
-    setSelectedStopId(null);
+    // TODO: Fetch driver data from database
+    // const data = await fetchDriverDay(selectedDriverId, date);
+    // setDriverDay(data);
   };
 
   // Clear time range filter
@@ -52,7 +63,7 @@ export default function Home() {
   };
 
   // Get selected driver object
-  const selectedDriver = drivers.find(d => d.id === selectedDriverId) || null;
+  const selectedDriver = sampleDrivers.find(d => d.id === selectedDriverId) || null;
 
   // Calculate average speed
   const averageSpeed = useMemo(() => {
@@ -95,21 +106,6 @@ export default function Home() {
     return { hours, minutes };
   }, [driverDay?.gpsTrack]);
 
-  // Loading state
-  if (dayLoading || driversLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-gray-500">Loading driver data...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state (but still show UI with sample data)
-  const showError = dayError || driversError;
-
   if (!driverDay) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
@@ -142,11 +138,6 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-6">
-            {showError && (
-              <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                Using sample data (DB unavailable)
-              </div>
-            )}
             <div className="text-right">
               <div className="text-sm text-gray-500">Avg Speed</div>
               <div className="font-semibold text-gray-900">{averageSpeed.toFixed(1)} km/h</div>
@@ -178,7 +169,7 @@ export default function Home() {
           {/* Driver and Date Selectors */}
           <div className="grid grid-cols-1 gap-3">
             <DriverSelector
-              drivers={drivers}
+              drivers={sampleDrivers}
               selectedDriverId={selectedDriverId}
               onDriverChange={handleDriverChange}
             />
