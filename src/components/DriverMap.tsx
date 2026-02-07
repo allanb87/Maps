@@ -173,6 +173,11 @@ export default function DriverMap({
                   <>
                     <br />
                     <span className="text-gray-600">Job #{delivery.jobId}</span>
+                    {delivery.jobDetails && Object.entries(delivery.jobDetails).map(([key, value]) => (
+                      <span key={key} className="block text-gray-500 text-xs">
+                        {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}: {String(value)}
+                      </span>
+                    ))}
                   </>
                 )}
                 <br />

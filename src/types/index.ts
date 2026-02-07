@@ -21,6 +21,7 @@ export interface Delivery {
   jobId: number;
   status: 'pickup' | 'delivered';
   completedAt?: Date;
+  jobDetails?: Record<string, unknown>;
 }
 
 export interface Driver {

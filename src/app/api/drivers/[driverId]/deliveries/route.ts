@@ -8,6 +8,7 @@ interface DeliveryRow extends RowDataPacket {
   latitude: number;
   longitude: number;
   status: string;
+  [key: string]: unknown;
 }
 
 export async function GET(
@@ -31,11 +32,13 @@ export async function GET(
 
   try {
     const [rows] = await pool.query<DeliveryRow[]>(
-      `SELECT job_id, job_datetime, latitude, longitude, status
-       FROM tbl_job_history
-       WHERE new_driver_id = ? AND DATE(job_datetime) = ?
-         AND status IN ('in transit', 'order delivered')
-       ORDER BY job_datetime ASC`,
+      `SELECT h.job_id, h.job_datetime, h.latitude, h.longitude, h.status,
+              j.*
+       FROM tbl_job_history h
+       LEFT JOIN tbl_job j ON j.id = h.job_id
+       WHERE h.new_driver_id = ? AND DATE(h.job_datetime) = ?
+         AND h.status IN ('in transit', 'order delivered')
+       ORDER BY h.job_datetime ASC`,
       [driverId, date]
     );
     return NextResponse.json(rows);

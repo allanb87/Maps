@@ -33,6 +33,10 @@ export default function StopsList({
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatFieldName = (key: string) => {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   const stats = useMemo(() => {
     const pickups = filteredStops.filter(s => s.type === 'pickup');
     const delivered = filteredStops.filter(s => s.type === 'delivered');
@@ -125,6 +129,17 @@ export default function StopsList({
                           {stop.type === 'delivered' ? 'Delivered' : 'Pickup'}
                         </span>
                       </div>
+
+                      {delivery?.jobDetails && (
+                        <div className="mt-1 ml-8 text-xs text-gray-600 space-y-0.5">
+                          {Object.entries(delivery.jobDetails).map(([key, value]) => (
+                            <div key={key}>
+                              <span className="text-gray-400">{formatFieldName(key)}:</span>{' '}
+                              {String(value)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="mt-1 ml-8 text-xs text-gray-500">
                         {formatTime(stop.arrivalTime)}
