@@ -13,8 +13,16 @@ export async function GET() {
       'SELECT driver_id, display_name FROM tbl_driver ORDER BY display_name'
     );
     return NextResponse.json(rows);
-  } catch (error) {
-    console.error('Error fetching drivers:', error);
-    return NextResponse.json({ error: 'Failed to fetch drivers' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching drivers:', message);
+    console.error('DB config:', {
+      host: process.env.MYSQL_HOST ?? '(not set)',
+      port: process.env.MYSQL_PORT ?? '(not set)',
+      user: process.env.MYSQL_USER ?? '(not set)',
+      database: process.env.MYSQL_DATABASE ?? '(not set)',
+      passwordSet: !!process.env.MYSQL_PASSWORD,
+    });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
