@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Stop, Delivery, TimeRange } from '@/types';
 
 interface StopsListProps {
@@ -44,23 +44,25 @@ export default function StopsList({
     };
   }, [filteredStops]);
 
+  useEffect(() => {
+    if (selectedStopId && !filteredStops.some(stop => stop.id === selectedStopId)) {
+      onStopSelect(null);
+    }
+  }, [filteredStops, onStopSelect, selectedStopId]);
+
   return (
     <div className="bg-white rounded-lg shadow flex flex-col h-full">
       <div className="p-4 border-b">
         <h3 className="font-semibold text-gray-900 mb-3">Stops & Jobs</h3>
 
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="bg-gray-50 p-2 rounded">
-            <span className="text-gray-500">Total</span>
-            <span className="float-right font-medium">{stats.total}</span>
-          </div>
-          <div className="bg-amber-50 p-2 rounded">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="bg-amber-50 p-2 rounded flex flex-col items-center text-center">
             <span className="text-amber-700">Pickups</span>
-            <span className="float-right font-medium text-amber-700">{stats.pickups}</span>
+            <span className="mt-1 text-lg font-semibold text-amber-700">{stats.pickups}</span>
           </div>
-          <div className="bg-green-50 p-2 rounded">
-            <span className="text-green-700">Delivered</span>
-            <span className="float-right font-medium text-green-700">{stats.delivered}</span>
+          <div className="bg-green-50 p-2 rounded flex flex-col items-center text-center">
+            <span className="text-green-700">Deliveries</span>
+            <span className="mt-1 text-lg font-semibold text-green-700">{stats.delivered}</span>
           </div>
         </div>
       </div>
@@ -111,6 +113,9 @@ export default function StopsList({
 
                   <div className="mt-1 ml-8 text-xs text-gray-500">
                     {formatTime(stop.arrivalTime)}
+                    {isSelected && (
+                      <span className="ml-2 text-gray-400">Map point #{index + 1}</span>
+                    )}
                   </div>
                 </li>
               );

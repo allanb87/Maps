@@ -20,6 +20,20 @@ const deliveredIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
+const selectedPickupIcon = L.divIcon({
+  className: 'custom-marker',
+  html: `<div style="background-color: #f59e0b; width: 30px; height: 30px; border-radius: 50%; border: 4px solid #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.35), 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
+
+const selectedDeliveredIcon = L.divIcon({
+  className: 'custom-marker',
+  html: `<div style="background-color: #22c55e; width: 30px; height: 30px; border-radius: 50%; border: 4px solid #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.35), 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
+
 const startIcon = L.divIcon({
   className: 'custom-marker',
   html: `<div style="background-color: #000; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">S</div>`,
@@ -81,9 +95,11 @@ export default function DriverMap({
     return deliveries.find(d => d.stopId === stopId);
   };
 
-  const getStopIcon = (stop: Stop) => {
-    if (stop.type === 'pickup') return pickupIcon;
-    return deliveredIcon;
+  const getStopIcon = (stop: Stop, isSelected: boolean) => {
+    if (isSelected) {
+      return stop.type === 'pickup' ? selectedPickupIcon : selectedDeliveredIcon;
+    }
+    return stop.type === 'pickup' ? pickupIcon : deliveredIcon;
   };
 
   const formatTime = (date: Date) => {
@@ -134,14 +150,16 @@ export default function DriverMap({
       )}
 
       {/* Stop markers */}
-      {filteredStops.map(stop => {
+      {filteredStops.map((stop, index) => {
         const delivery = getDeliveryForStop(stop.id);
+        const isSelected = stop.id === selectedStopId;
 
         return (
           <Marker
             key={stop.id}
             position={[stop.lat, stop.lng]}
-            icon={getStopIcon(stop)}
+            icon={getStopIcon(stop, isSelected)}
+            zIndexOffset={isSelected ? 1000 : 0}
             eventHandlers={{
               click: () => onStopSelect(stop.id === selectedStopId ? null : stop.id),
             }}
@@ -157,6 +175,8 @@ export default function DriverMap({
                     <span className="text-gray-600">Job #{delivery.jobId}</span>
                   </>
                 )}
+                <br />
+                <span className="text-gray-500">Map point #{index + 1}</span>
                 <hr className="my-1" />
                 <span className="text-gray-500">
                   {formatTime(stop.arrivalTime)}
