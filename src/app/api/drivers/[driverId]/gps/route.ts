@@ -33,6 +33,7 @@ export async function GET(
       `SELECT lat, lng, datetime, speed
        FROM tbl_driver_stats_2020_q3
        WHERE driver_id = ? AND DATE(datetime) = ?
+         AND lat IS NOT NULL AND lng IS NOT NULL
        ORDER BY datetime ASC`,
       [driverId, date]
     );

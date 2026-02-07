@@ -35,6 +35,7 @@ export async function GET(
        FROM tbl_job_history
        WHERE new_driver_id = ? AND DATE(job_datetime) = ?
          AND status IN ('in transit', 'order delivered')
+         AND latitude IS NOT NULL AND longitude IS NOT NULL
        ORDER BY job_datetime ASC`,
       [driverId, date]
     );
